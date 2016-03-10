@@ -1,0 +1,15 @@
+title: Intermediate Ray Tracer Tutorial
+author:
+  name: IGME-RIT
+  email:
+  github: igme-rit
+description: This demo adds on the concept of instanced rendering introduced previously.
+language: C++
+image:
+  icon: https://cloud.githubusercontent.com/assets/10502938/13506660/28be0300-e14d-11e5-90e3-b194f14e52bd.PNG
+  banner: https://cloud.githubusercontent.com/assets/10502938/13506660/28be0300-e14d-11e5-90e3-b194f14e52bd.PNG
+tags:
+  - C++
+  - Graphics
+extra_resources:
+  - "https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-(Part-I)"
