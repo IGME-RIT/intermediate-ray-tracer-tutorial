@@ -13,3 +13,6 @@ tags:
   - Graphics
 extra_resources:
   - "https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-(Part-I)"
+connections:
+  - "basic-ray-tracer-tutorial"
+  - "point-lighting-tutorial"
