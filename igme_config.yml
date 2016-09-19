@@ -1,18 +1,17 @@
-title: Intermediate Ray Tracer Tutorial
+series: Ray Tracers
+title: Intermediate Ray Tracer
 author:
-  name: IGME-RIT
+  name: Brockton Roth
   email:
-  github: igme-rit
-description: This demo adds on the concept of instanced rendering introduced previously.
+  github: https://github.com/IGME-RIT
+description: Demonstration of a more complex ray tracing algorithm.
 language: C++
-image:
-  icon: https://cloud.githubusercontent.com/assets/10502938/13506660/28be0300-e14d-11e5-90e3-b194f14e52bd.PNG
-  banner: https://cloud.githubusercontent.com/assets/10502938/13506660/28be0300-e14d-11e5-90e3-b194f14e52bd.PNG
 tags:
-  - C++
   - Graphics
+  - Math
 extra_resources:
-  - "https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-(Part-I)"
+  - title: Ray Tracing With Compute Shaders
+    link: https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-(Part-I)
 connections:
-  - "basic-ray-tracer-tutorial"
-  - "point-lighting-tutorial"
+  - series: Ray Tracers
+    title: Basic Ray Tracer
