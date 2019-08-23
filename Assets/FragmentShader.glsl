@@ -253,9 +253,10 @@ vec3 addLightColorToPixColor(vec3 lightPos, vec3 dirRayToPoint, hitinfo rayHitPo
 	hitinfo lightHitPoint;
 
 	// Now we check to see if any polygons are standing between the point
-	// that the ray hit, and the light. If a polygon blocks the ray from
-	// the light, then don't light this pixel (shadow). Otherwise, light it
-	if(intersectTriangles(lightPos, normalize(rayHitPoint.point - lightPos), lightHitPoint))
+	// that the ray hit, and the light. If a polygon blocks this new ray from
+	// the light, then don't light this pixel (shadow). Otherwise, light it.
+	// If you do NOT want shadows, delete the if-statment
+	if(intersectTriangles(lightPos, -pointToLight, lightHitPoint))
 	{
 		// If the distance from the point to the light is farther than the distance from the light to the first surface it hits
 		if(dist - length(lightPos - lightHitPoint.point) > 0.1)

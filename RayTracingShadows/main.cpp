@@ -122,7 +122,7 @@ void renderScene()
 	if (dtime - timebase > 1)
 	{
 		// Calculate the FPS and set the window title to display it.
-		fps = tempFrame / (dtime - timebase);
+		fps = tempFrame / (int)(dtime - timebase);
 		timebase = dtime;
 		tempFrame = 0;
 
@@ -182,7 +182,7 @@ std::string readShader(std::string fileName)
 
 	// We choose ifstream and std::ios::in because we are opening the file for input into our program.
 	// If we were writing to the file, we would use ofstream and std::ios::out.
-	std::ifstream file(fileName, std::ios::in);
+	std::ifstream file(fileName, std::ios::binary);
 
 	// This checks to make sure that we didn't encounter any errors when getting the file.
 	if (!file.good())
