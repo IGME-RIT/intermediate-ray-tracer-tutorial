@@ -1,5 +1,5 @@
 /*
-Title: Intermediate Ray Tracer
+Title: Advanced Ray Tracer
 File Name: FragmentShader.glsl
 Copyright © 2015, 2019
 Original authors: Brockton Roth, Niko Procopi
@@ -25,10 +25,19 @@ References:
 https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-(Part-I)
 
 Description:
-This program serves to demonstrate the concept of ray tracing. This 
-builds off of a previous Basic Ray Tracer, adding in the concept of 
-light and shadow. There are four point lights, and this uses 
-diffuse and specular lighting.
+This program serves to demonstrate the concept of ray tracing. This
+builds off a previous Intermediate Ray Tracer, adding in reflections. 
+There are four point lights, specular and diffuse lighting, and shadows. 
+It is important to note that the light positions and triangles being 
+rendered are all hardcoded in the shader itself. Usually, you would 
+pass those values into the Fragment Shader via a Uniform Buffer.
+
+WARNING: Framerate may suffer depending on your hardware. This is a normal 
+problem with Ray Tracing. If it runs too slowly, try removing the second 
+cube from the triangles array in the Fragment Shader (and also adjusting 
+NUM_TRIANGLES accordingly). There are many optimization techniques out 
+there, but ultimately Ray Tracing is not typically used for Real-Time 
+rendering.
 */
 
 #version 400 // Identifies the version of the shader, this line must be on a separate line from the rest of the shader code
@@ -89,11 +98,11 @@ const triangle triangles[] = triangle[26](
 
 	/* Cube Box 2 */
 	/* Back face triangles */
-	triangle(vec3(2.5, 3.5, 2.5), vec3(3.5, 3.5, 2.5), vec3(2.5, 4.5, 2.5), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0)),
-	triangle(vec3(3.5, 3.5, 2.5), vec3(3.5, 4.5, 2.5), vec3(2.5, 4.5, 2.5), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0)),
+	triangle(vec3(2.5, 3.5, 2.5), vec3(3.5, 3.5, 2.5), vec3(2.5, 4.5, 2.5), vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0)),
+	triangle(vec3(3.5, 3.5, 2.5), vec3(3.5, 4.5, 2.5), vec3(2.5, 4.5, 2.5), vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0)),
 	/* Front face triangles*/
-	triangle(vec3(2.5, 3.5, 1.5), vec3(2.5, 4.5, 1.5), vec3(3.5, 4.5, 1.5), vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0)),
-	triangle(vec3(2.5, 3.5, 1.5), vec3(3.5, 4.5, 1.5), vec3(3.5, 3.5, 1.5), vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0)),
+	triangle(vec3(2.5, 3.5, 1.5), vec3(2.5, 4.5, 1.5), vec3(3.5, 4.5, 1.5), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0)),
+	triangle(vec3(2.5, 3.5, 1.5), vec3(3.5, 4.5, 1.5), vec3(3.5, 3.5, 1.5), vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0)),
 	/* Right face triangles */
 	triangle(vec3(3.5, 3.5, 1.5), vec3(3.5, 4.5, 1.5), vec3(3.5, 4.5, 2.5), vec3(1.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)),
 	triangle(vec3(3.5, 3.5, 1.5), vec3(3.5, 4.5, 2.5), vec3(3.5, 3.5, 2.5), vec3(1.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)),
@@ -193,6 +202,16 @@ bool intersectTriangles(vec3 origin, vec3 dir, out hitinfo info)
 	// For each triangle.
 	for(int i = 0; i < NUM_TRIANGLES; i++)
 	{
+		// If the dot product is 0, the vectors are 90 degrees apart (orthogonal or perpendicular).
+		// If the dot product is less than 0, the vectors are more than 90 degrees apart.
+		// If the dot product is greater than 0, the vectors are less than 90 degrees apart.
+
+		// If our direction can't hit the triangle
+		// skip this triangle, and check the next triangle
+		
+		if(dot(triangles[i].normal, dir) > 0)
+			continue;
+
 		// Compute distance t using above function to determine how far along the ray the triangle collides.
 		float t = rayIntersectsTriangle(origin, dir, triangles[i].a, triangles[i].b, triangles[i].c);
 
@@ -218,56 +237,70 @@ bool intersectTriangles(vec3 origin, vec3 dir, out hitinfo info)
 
 // Takes the position of a light, a vector from the point of collision toward the light, a vector direction from the origin toward the point of collision,
 // a hitinfo object containing data in regards to the ray-triangle collision, and a float determining the brightness of a light.
-// This will calculate the color of a given pixel as given by a light source.
-vec3 addLightColorToPixColor(vec3 lightPos, vec3 dir, hitinfo eyeHitPoint, float lightIntensity)
+// This will also factor in a single reflection off of the initial collided surface.
+vec3 addLightColorToPixColor(vec3 lightPos, vec3 dirRayToPoint, hitinfo rayHitPoint, float lightIntensity)
 {
 	// get direction from point to light
-	vec3 pointToLight = lightPos - eyeHitPoint.point;
+	vec3 pointToLight = lightPos - rayHitPoint.point;
 	
 	// Get the distance from point on surface to light
 	float dist = length(pointToLight);
 
-	// Create a hitinfo object to store the collision.
-	hitinfo lightRender;
+	// normalize the distance, to get direction
+	pointToLight = normalize(pointToLight);
 
-	// Now we render things from the light point of view, so we call intersectTriangles passing in the light position as the origin.
-	// The direction vector is from the light position toward the point on the triangle that we're trying to render.
-	if(intersectTriangles(lightPos, normalize(eyeHitPoint.point - lightPos), lightRender))
+	// Create a hitinfo object to store the collision.
+	hitinfo lightHitPoint;
+
+	// Now we check to see if any polygons are standing between the point
+	// that the ray hit, and the light. If a polygon blocks the ray from
+	// the light, then don't light this pixel (shadow). Otherwise, light it
+	if(intersectTriangles(lightPos, normalize(rayHitPoint.point - lightPos), lightHitPoint))
 	{
 		// If the distance from the point to the light is farther than the distance from the light to the first surface it hits
-		if(dist - length(lightPos - lightRender.point) > 0.1)
+		if(dist - length(lightPos - lightHitPoint.point) > 0.1)
 		{
 			// Then this is in shadow, since the light is hitting another object first.
-			return vec3(0.0, 0.0, 0.0);
+			return vec3(0);
 		}
 	}
 
-	// Normalize our pointToLight.
-	vec3 normalPTL = pointToLight / dist;
-
 	// Get a reflection vector bouncing the light ray off the surface of the triangle.
 	// Used for specular light calculations.
-	vec3 r = normalize((2 * dot(triangles[eyeHitPoint.index].normal, normalPTL) * triangles[eyeHitPoint.index].normal) - normalPTL);
+	vec3 reflectedRayToPoint = reflect(pointToLight, triangles[rayHitPoint.index].normal);
+
+	// get the dot product, just like the basic tutorials
+	float NdotL = dot(triangles[rayHitPoint.index].normal, pointToLight);
+
+	// Accurate reflections
+	// NdotL = clamp(NdotL, 0.0, 1.0);
+
+	// Exaggerated Reflections
+	NdotL = clamp(NdotL, 0.0, NdotL);
+
+	// get the attenuation
+	// this is not range-based attenuation
+	// but it will work
+	float atten = 1.0 / (dist*dist);
+
+	// Get the final color of the light on the pixel
+	float diffuse = NdotL * atten;
 
 	// Calculate specular and diffuse lighting normally.
-	float specular = max(0, pow(dot(r,-dir), 4)) / pow(dist, 2);
-	float diffuse = max(0, dot(triangles[eyeHitPoint.index].normal, normalPTL)) / pow(dist, 2);
+	float specular = max(0, pow(dot(reflectedRayToPoint, dirRayToPoint), 64)) * atten;
 
-	// Add in our diffuse light and specular (we do white light, for specula) and factor in the reflectionLevel and lightIntensity.
-	vec3 pixColor = (triangles[eyeHitPoint.index].color * diffuse * lightIntensity) + (lightIntensity * specular * vec3(1.0, 1.0, 1.0));
-	
-	// Then return the final color.
-	return pixColor;
+	// Return our diffuse light and specular (we do white light, for specula) and factor in the reflectionLevel and lightIntensity.
+	return (triangles[rayHitPoint.index].color * lightIntensity * diffuse) + (lightIntensity * specular);
 }
 
 // Trace a ray from an origin point in a given direction and calculate/return the color value of the point that ray hits.
-vec4 trace(vec3 origin, vec3 dir)
+vec4 trace(vec3 origin, vec3 dirEyeToTriangle)
 {
 	// Create object to get our hitinfo back out of the intersectTriangles function.
-	hitinfo i;
+	hitinfo eyeHitTriangle;
 
 	// If this ray intersects any of the triangles in the scene.
-	if (intersectTriangles(origin, dir, i))
+	if (intersectTriangles(origin, dirEyeToTriangle, eyeHitTriangle))
 	{
 		// We now must factor in lights. In this case, we've created 4 lights.
 		// This establishes positions for the lights, hardcoded into the shader.
@@ -277,19 +310,19 @@ vec4 trace(vec3 origin, vec3 dir)
 		light[1] = vec3(-8.0, 5.0, 5.0);
 		light[2] = vec3(5.0, 8.0, -5.0);
 		light[3] = vec3(-5.0, 5.0, -5.0);
-
+		
 		// This lightIntensity variable is used to multiply the brightness given off by this light. Higher value means more light.
 		float lightIntensity = 6.0;
-		
-		// Create a pixColor variable, which will determine the output color of this pixel. Start with some ambient light.
-		vec3 pixColor = triangles[i.index].color * 0.1;
 
-		// For each light.
+		// Create a pixColor variable, which will determine the output color of this pixel. Start with some ambient light.
+		vec3 pixColor = triangles[eyeHitTriangle.index].color * 0.1;
+
+		// add brightness from each light onto the pixel
+		// or, if the light does not touch this pixel
+		// then nothing will be added, causing a shadow
 		for(int j = 0; j < 4; j++)
 		{
-			// Call our addToPixColor function to calculate the color given off by this light.
-			// Essentially, we're rendering the scene from the light's point of view for each light to get this pixel color.
-			pixColor += addLightColorToPixColor(light[j], dir, i, lightIntensity);
+			pixColor += addLightColorToPixColor(light[j], dirEyeToTriangle, eyeHitTriangle, lightIntensity);
 		}
 		
 		// Return the final pixel color.		
@@ -297,11 +330,15 @@ vec4 trace(vec3 origin, vec3 dir)
 	}
 
 	// If the ray doesn't hit any triangles, then this ray sees nothing and thus:
-	return vec4(0.0, 0.0, 0.0, 1.0);
+	// Return 0, which can be replaced with skybox
+	return vec4(vec3(0), 1.0);
 }
 
 void main(void)
 {
+	// Keep in mind, "textureCoord" does not actually mean textures being mapped onto the surface of geometry,
+	// UV coordinates and textures will come in a future tutorial
+
 	// This is easy. Using the textureCoord, you interpolate between the four corner rays to get a ray (dir) that goes through a point in the screen.
 	// For your mental image, imagine this shader runes once for every single pixel on your screen.
 	// Every time it runs, dir is the ray that goes from the camera's position, through the pixel that it is rendering. Thus, we are tracing a ray through every pixel 

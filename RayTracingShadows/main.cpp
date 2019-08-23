@@ -43,7 +43,7 @@ GLuint vertex_shader;
 GLuint fragment_shader;
 
 // These are your uniform variables.
-GLuint eye;		// Specifies camera location
+GLuint eye_loc;		// Specifies camera location
 // The rays are the four corner rays of the camera view. See: https://camo.githubusercontent.com/21a84a8b21d6a4bc98b9992e8eaeb7d7acb1185d/687474703a2f2f63646e2e6c776a676c2e6f72672f7475746f7269616c732f3134313230385f676c736c5f636f6d707574652f726179696e746572706f6c6174696f6e2e706e67
 GLuint ray00;
 GLuint ray01;
@@ -57,10 +57,15 @@ glm::vec3 cameraPos;
 GLFWwindow* window;
 
 // Variables you will need to calculate FPS.
-int frame;
-double dtime;
-double timebase;
-int fps;
+int tempFrame = 0;
+int totalFrame = 0;
+double dtime = 0.0;
+double timebase = 0.0;
+double totalTime = 0.0;
+int fps = 0;
+
+int width = 800;
+int height = 600;
 
 // This function takes in variables that define the perspective view of the camera, then outputs the four corner rays of the camera's view.
 // It takes in a vec3 eye, which is the position of the camera.
@@ -69,7 +74,7 @@ int fps;
 // Then it takes a float defining the verticle field of view angle. It also takes a float defining the ratio of the screen (in this case, 800/600 pixels).
 // The last four parameters are actually just variables for this function to output data into. They should be pointers to pre-defined vec4 variables.
 // For a visual reference, see this image: https://camo.githubusercontent.com/21a84a8b21d6a4bc98b9992e8eaeb7d7acb1185d/687474703a2f2f63646e2e6c776a676c2e6f72672f7475746f7269616c732f3134313230385f676c736c5f636f6d707574652f726179696e746572706f6c6174696f6e2e706e67
-void calcCameraRays(glm::vec3 eye, glm::vec3 center, glm::vec3 up, float fov, float ratio, glm::vec4* r00, glm::vec4* r01, glm::vec4* r10, glm::vec4* r11)
+void calcCameraRays(glm::vec3 eye, glm::vec3 center, glm::vec3 up, float fov, float ratio)
 {
 	// Grab a ray from the camera position toward where the camera is to be centered on.
 	glm::vec3 centerRay = center - eye;
@@ -87,61 +92,19 @@ void calcCameraRays(glm::vec3 eye, glm::vec3 center, glm::vec3 up, float fov, fl
 	// Get the upward (relative to camera) pointing vector by crossing the rightward vector with your w vector.
 	glm::vec3 v = glm::cross(w, u);
 
-	// Each ray starts based off of the center ray. Then we will rotate them over the
-	*r00 = glm::vec4(centerRay, 1.0f);
-	*r01 = *r00;
-	*r10 = *r00;
-	*r11 = *r00;
-
 	// We create these two helper variables, as when we rotate the ray about it's relative Y axis (v), we will then need to rotate it about it's relative X axis (u).
 	// This means that u has to be rotated by v too, otherwise the rotation will not be accurate. When the ray is rotated about v, so then are it's relative axes.
 	glm::vec4 uRotateLeft = glm::vec4(u, 1.0f) * glm::rotate(glm::mat4(), glm::radians(-fov * ratio / 2.0f), v);
 	glm::vec4 uRotateRight = glm::vec4(u, 1.0f) * glm::rotate(glm::mat4(), glm::radians(fov * ratio / 2.0f), v);
 
 	// Now we simply take the ray and rotate it in each direction to create our four corner rays.
-	*r00 = *r00 * glm::rotate(glm::mat4(), glm::radians(-fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(fov / 2.0f), glm::vec3(uRotateLeft.x, uRotateLeft.y, uRotateLeft.z));
-	*r01 = *r01 * glm::rotate(glm::mat4(), glm::radians(-fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(-fov / 2.0f), glm::vec3(uRotateLeft.x, uRotateLeft.y, uRotateLeft.z));
-	*r10 = *r10 * glm::rotate(glm::mat4(), glm::radians(fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(fov / 2.0f), glm::vec3(uRotateRight.x, uRotateRight.y, uRotateRight.z));
-	*r11 = *r11 * glm::rotate(glm::mat4(), glm::radians(fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(-fov / 2.0f), glm::vec3(uRotateRight.x, uRotateRight.y, uRotateRight.z));
-}
-
-
-// This runs once a frame, before renderScene
-void update()
-{
-	// Used for FPS
-	dtime = glfwGetTime();
-
-	// Every second, basically.
-	if (dtime - timebase > 1)
-	{
-		// Calculate the FPS and set the window title to display it.
-		fps = frame / (dtime - timebase);
-		timebase = dtime;
-		frame = 0;
-
-		std::string s = "FPS: " + std::to_string(fps);
-
-		glfwSetWindowTitle(window, s.c_str());
-	}
-
-	// For rotating the camera, we convert it to a vec4 and then do a rotation about the Y axis.
-	glm::vec4 tempPos = glm::vec4(cameraPos, 1.0f) * glm::rotate(glm::mat4(1.0f), glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-	// Then we convert back to a vec3.
-	cameraPos = glm::vec3(tempPos.x, tempPos.y, tempPos.z);
-
-	// These are our four corner ray variables.
-	glm::vec4 r00;
-	glm::vec4 r01;
-	glm::vec4 r10;
-	glm::vec4 r11;
-
-	// Call the function we created to calculate the corner rays.
-	calcCameraRays(cameraPos, glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, 800.0f / 600.0f, &r00, &r01, &r10, &r11);
+	glm::vec4 r00 = glm::vec4(centerRay, 1.0f) * glm::rotate(glm::mat4(), glm::radians(-fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(fov / 2.0f), glm::vec3(uRotateLeft));
+	glm::vec4 r01 = glm::vec4(centerRay, 1.0f) * glm::rotate(glm::mat4(), glm::radians(-fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(-fov / 2.0f), glm::vec3(uRotateLeft));
+	glm::vec4 r10 = glm::vec4(centerRay, 1.0f) * glm::rotate(glm::mat4(), glm::radians(fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(fov / 2.0f), glm::vec3(uRotateRight));
+	glm::vec4 r11 = glm::vec4(centerRay, 1.0f) * glm::rotate(glm::mat4(), glm::radians(fov * ratio / 2.0f), v) * glm::rotate(glm::mat4(), glm::radians(-fov / 2.0f), glm::vec3(uRotateRight));
 
 	// Now set the uniform variables in the shader to match our camera variables (cameraPos = eye, then four corner rays)
-	glUniform3f(eye, cameraPos.x, cameraPos.y, cameraPos.z);
+	glUniform3f(eye_loc, eye.x, eye.y, eye.z);
 	glUniform3f(ray00, r00.x, r00.y, r00.z);
 	glUniform3f(ray01, r01.x, r01.y, r01.z);
 	glUniform3f(ray10, r10.x, r10.y, r10.z);
@@ -151,21 +114,63 @@ void update()
 // This function runs every frame
 void renderScene()
 {
-	// Clear the color buffer and the depth buffer
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// Used for FPS
+	dtime = glfwGetTime();
+	totalTime = dtime;
 
-	// Clear the screen to black
-	glClearColor(0.0, 0.0, 0.0, 1.0);
+	// Every second, basically.
+	if (dtime - timebase > 1)
+	{
+		// Calculate the FPS and set the window title to display it.
+		fps = tempFrame / (dtime - timebase);
+		timebase = dtime;
+		tempFrame = 0;
 
-	// procedurally generating geometry
-	// no VAO or VBO needed
-	// just like previous tutorials
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		std::string s = "FPS: " + std::to_string(fps) + " Frame: " + std::to_string(totalFrame);
+
+		glfwSetWindowTitle(window, s.c_str());
+	}
+
+	// To rotate the camera at the same speed
+	// regardless of Frame Rate, use this code
+	/*cameraPos = glm::vec3(
+		8.0f * cos(totalTime),
+		8.0f, 
+		8.0f * sin(totalTime)
+	);*/
+
+	// To rotate the camera at a speed that depends
+	// on FPS (high fps makes camera spin fast,
+	// low fps makes camera spin slow), use this code
+	cameraPos = glm::vec3(
+		8.0f * cos((float)totalFrame / 60),
+		8.0f,
+		8.0f * sin((float)totalFrame / 60)
+	);
+
+	// Call the function we created to calculate the corner rays.
+	// We use the camera position, the focus position, and the up direction (just like glm::lookAt)
+	// We use Field of View, and aspect ratio (just like glm::perspective)
+	calcCameraRays(cameraPos, glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 45.0f, (float)width / height);
+
+	// Notice, we do not use glClear or glClearColor
+	// This is because, every pixel will be redrawn
+	// by the fragment shader anyways, so clearing
+	// it would only be an extra step
+
+	// We procedurally generate a quad in the vertex shader.
+	// No VAO or VBO needed, just like previous tutorials
+
 
 	// this draws one quad that covers the whole screen
 	// which allows the rasterizer to activate every
 	// pixel in the fragment shader, just like deferred
 	// rendering tutorials
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	// help us keep track of FPS
+	tempFrame++;
+	totalFrame++;
 }
 
 // This method reads the text from a file.
@@ -279,53 +284,31 @@ void init()
 	// This gets us a reference to the uniform variables in the vertex shader, which are called by the same name here as in the shader.
 	// We're using these variables to define the camera. The eye is the camera position, and teh rays are the four corner rays of what the camera sees.
 	// Only 2 parameters required: A reference to the shader program and the name of the uniform variable within the shader code.
-	eye = glGetUniformLocation(program, "eye");
+	eye_loc = glGetUniformLocation(program, "eye");
 	ray00 = glGetUniformLocation(program, "ray00");
 	ray01 = glGetUniformLocation(program, "ray01");
 	ray10 = glGetUniformLocation(program, "ray10");
 	ray11 = glGetUniformLocation(program, "ray11");
+}
 
-	// This is where we'll set up our camera location at.
-	cameraPos = glm::vec3(4.0f, 8.0f, 8.0f);
-
-	// These are four corner ray variables to store the output from our calcCameraRays function.
-	glm::vec4 r00;
-	glm::vec4 r01;
-	glm::vec4 r10;
-	glm::vec4 r11;
-
-	// Call our function to calculate the four corner rays. We're choosing to make the point the camera centeras on at 0, 0.5, 0.
-	// Our FoV angle is 60 degrees and our ratio is 800/600 which is just the pixel ratio.
-	calcCameraRays(cameraPos, glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 60.0f, 800.0f / 600.0f, &r00, &r01, &r10, &r11);
-
-	// Now set the uniform variables in the shader to match our camera variables (cameraPos = eye, then four corner rays)
-	glUniform3f(eye, cameraPos.x, cameraPos.y, cameraPos.z);
-	glUniform3f(ray00, r00.x, r00.y, r00.z);
-	glUniform3f(ray01, r01.x, r01.y, r01.z);
-	glUniform3f(ray10, r10.x, r10.y, r10.z);
-	glUniform3f(ray11, r11.x, r11.y, r11.z);
-
-	// This is not necessary, but I prefer to handle my vertices in the clockwise order. glFrontFace defines which face of the triangles you're drawing is the front.
-	// Essentially, if you draw your vertices in counter-clockwise order, by default (in OpenGL) the front face will be facing you/the screen. If you draw them clockwise, the front face
-	// will face away from you. By passing in GL_CW to this function, we are saying the opposite, and now the front face will face you if you draw in the clockwise order.
-	// If you don't use this, just reverse the order of the vertices in your array when you define them so that you draw the points in a counter-clockwise order.
-	glFrontFace(GL_CW);
+void window_size_callback(GLFWwindow* window, int w, int h)
+{
+	width = w;
+	height = h;
+	glViewport(0, 0, width, height);
 }
 
 int main(int argc, char **argv)
 {
-	// FPS variables.
-	frame = 0;
-	dtime = 0.0;
-	timebase = 0.0;
-	fps = 0;
-
 	// Initializes the GLFW library
 	glfwInit();
 
 	// Creates a window given (width, height, title, monitorPtr, windowPtr).
 	// Don't worry about the last two, as they have to do with controlling which monitor to display on and having a reference to other windows. Leaving them as nullptr is fine.
-	window = glfwCreateWindow(800, 600, "Shadow Ray Tracer", nullptr, nullptr);
+	window = glfwCreateWindow(width, height, "", nullptr, nullptr);
+
+	// This allows us to resize the window when we want to
+	glfwSetWindowSizeCallback(window, window_size_callback);
 
 	// Makes the OpenGL context current for the created window.
 	glfwMakeContextCurrent(window);
@@ -339,17 +322,12 @@ int main(int argc, char **argv)
 	// Enter the main loop.
 	while (!glfwWindowShouldClose(window))
 	{
-		// Call to the update function; should always be before rendering.
-		update();
-
 		// Call the render function.
 		renderScene();
 
 		// Swaps the back buffer to the front buffer
 		// Remember, you're rendering to the back buffer, then once rendering is complete, you're moving the back buffer to the front so it can be displayed.
 		glfwSwapBuffers(window);
-
-		frame++; // For framerate checking.
 
 		// Checks to see if any events are pending and then processes them.
 		glfwPollEvents();

@@ -92,23 +92,23 @@ When we're done checking all the lights, we return the pixel color:
 	return vec4(pixColor.rgb, 1.0);
 
 The addLightColorToPixColor function is what checks to see if a light touches a pixel
-lightPos is the position of the light,
-pointToLight is the direction from the point where the eye's ray hit a triangle, to the light,
-dir is the direction from the eye to the point that they eye's ray hit on the triangle.
-eyeHitPoint gives the index in the triangle array that the eye's ray hit, letting us know which triangle 
-	was hit by the eye's ray, and the point where the eye's ray hit the polygon
-lightIntensity is how strong the light should be, if it hits the object directly, without any distance.
+lightPos is the position of the light, pointToLight is the direction from the point 
+where the eye's ray hit a triangle, to the light, dirRayToPoint is the direction from 
+the eye to the point that they eye's ray hit on the triangle. rayHitPoint gives the 
+index in the triangle array that the eye's ray hit, letting us know which triangle 
+was hit by the eye's ray, and the point where the eye's ray hit the polygon.
+The variable "lightIntensity" is how strong the light should be.
 
 vec3 addLightColorToPixColor(vec3 lightPos, vec3 dir, hitinfo eyeHitPoint, float lightIntensity)
 
 First, we get the direction from the point to the light
-	vec3 pointToLight = lightPos - eyeHitPoint.point;
+	vec3 pointToLight = lightPos - rayHitPoint.point;
 
 In this function, we make a hitInfo to see if any geometry stands between the light we are processing,
 and the point at which the eye's ray hit a polygon. We have to do this for 4 lights, so that means
 rays have to loop through all the geometry 5 times, it is clear how this can become expensive without
 optimizations
-	hitInfo render;
+	hitInfo lightHitPoint;
 	
 We use intersectTriangles to check all polygons in the scene, to see if any of them 
 collide with the ray that shoots off the geometry that was hit by the eye's ray, in the 
@@ -123,23 +123,31 @@ If nothing blocks the light from the point that was hit by the eye's ray, we nee
 brightness and should be applied to this pixel.
 
 We normalize the ray from the point the eye hit, to the light
-	vec3 normalPTL = pointToLight / dist;
+	pointToLight = normalize(pointToLight);
 	
 we calculate the reflection vector, which will be used for calculating specular light,
-	vec3 r = normalize((2 * dot(triangles[eyeHitPoint.index].normal, normalPTL) * triangles[eyeHitPoint.index].normal) - normalPTL);
-	
-This method is similar to previous tutorials with specular lighting in the "More Graphics" section. 
-Please refer to the Specular Lighting tutorial in that section, if you would like more details.
+this is done exactly the same as it would be done in previous Specular Lighting tutorials,
+which can be found in the "More Graphics" section
+	vec3 reflectedRayToPoint = reflect(pointToLight, triangles[rayHitPoint.index].normal);
 
-With Diffuse, we use something similar to NdotL, to make it so the light only adds brightness 
-to one side of the triangle (with the triangle's normal vector), this makes it so light does not 
-go through triangles.
-	max(0, dot(triangles[eyeHitPoint.index].normal, normalPTL)) ... (read next line)
+We use NdotL, just like other lighting tutorials
+	float NdotL = dot(triangles[rayHitPoint.index].normal, pointToLight);
 	
-Then we divide by distance ^ 2, which makes the light darker when the light is farther away,
-this gives us a sense of attenuation. Close lights are bright, far lights are dark
-	max(0, dot(triangles ... )) / pow(dist, 2);
+We clamp NdotL, just like other lighting tutorials,
+there are two options of clamping in the shader code,
+with comments explaining what they do. Pick your favorite
+	
+We have attenuation, to make the pixel brighter or darker, depending
+on how far the light is away from the pixel. Basic cheap attenuation
+	float atten = 1.0 / (dist*dist);
 
+We calculate specular light, just like previous tutorials,
+use max(0, ...) to ensure that the value does not go negative,
+get the dot product of the reflected ray, and the direction from ray to point.
+This tells how far away the light is from the ray that reflected off geometry.
+Put that value to the power of 64 (bigger power = smaller specular circle).
+Then, multiply it all by attenuation
+	
 With diffuse, specular, intensity of the light, and the color of the triangle, we
 can finally return pixColor, which is not the color of the pixel, but the amount
 that we are adding to the color of the pixel, from this particular light
